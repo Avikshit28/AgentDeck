@@ -2,41 +2,46 @@ package main
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
-	"github.com/Avikshit28/AgentDeck/internal/events"
+	"io"
+	"os/exec"
 )
 
-// fakeAgent sends 5 text events, pausing between each.
-func fakeAgent(id events.AgentID, count int,  delay time.Duration, bus *events.Bus, wg*sync.WaitGroup){
-	defer wg.Done()
-	for i:= 1; i<=count; i++{
-		time.Sleep(delay)
-		bus.Publish(events.TextDelta{Meta: events.NewMeta(id), Text:  fmt.Sprintf("line %d", i)})
+func main() {
+	// A command that prints slowly, so we can see streaming happen.
+	cmd := exec.Command("sh", "-c", "for i in 1 2 3 4 5; do echo line $i; sleep 1; done")
+
+	// Ask for a pipe to its output BEFORE starting it.
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("pipe failed:", err)
+		return
 	}
-}
-func main(){
-	bus := events.NewBus(0)
-	var wg sync.WaitGroup
-	wg.Add(4)
-	go fakeAgent("a1", 3, 100*time.Millisecond, bus, &wg)
-	go fakeAgent("a2", 5, 150*time.Millisecond, bus, &wg)
-	go fakeAgent("a3", 2, 250*time.Millisecond, bus, &wg)
-	go fakeAgent("a4", 4, 200*time.Millisecond, bus, &wg)
-	go func(){
-		wg.Wait()
-		bus.Close()
-	}()
+
+	// Start runs the program but does NOT wait for it.
+	if err := cmd.Start(); err != nil {
+		fmt.Println("start failed:", err)
+		return
+	}
+
+	// Read whatever has arrived, over and over, until the program closes the pipe.
+	buf := make([]byte, 1024)
 	for {
-		select{
-		case e := <-bus.Events():
-			if td, ok := e.(events.TextDelta); ok{
-				fmt.Printf("[%s] %s\n", td.AgentID(), td.Text)
-			}
-		case <-bus.Done():
-			fmt.Println("all agents finished, bus closed")
-			return
+		n, err := stdout.Read(buf)
+		if n > 0 {
+			fmt.Printf("[chunk of %d bytes] %s", n, string(buf[:n]))
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("read failed:", err)
+			break
 		}
 	}
+
+	// Wait collects the exit code, now that output is finished.
+	if err := cmd.Wait(); err != nil {
+		fmt.Println("exited with error:", err)
+	}
+	fmt.Println("--- done, exit code:", cmd.ProcessState.ExitCode(), "---")
 }

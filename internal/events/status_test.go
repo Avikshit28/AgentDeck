@@ -1,9 +1,11 @@
 package events
+
 import "testing"
-func TestStatusString (t *testing.T){
+
+func TestStatusString(t *testing.T) {
 	tests := []struct {
 		status Status
-		want string
+		want   string
 	}{
 		{StatusPending, "pending"},
 		{StatusRunning, "running"},
@@ -14,19 +16,19 @@ func TestStatusString (t *testing.T){
 	}
 	for _, tt := range tests {
 		got := tt.status.String()
-		if got != tt.want{
+		if got != tt.want {
 			t.Errorf("Status(%d).String() = %q, want %q", int(tt.status), got, tt.want)
 		}
 	}
 }
-func TestStatusTerminal (t *testing.T){
-	if StatusRunning.Terminal(){
+func TestStatusTerminal(t *testing.T) {
+	if StatusRunning.Terminal() {
 		t.Error("running should not be in terminal")
 	}
-	if !StatusDone.Terminal(){
+	if !StatusDone.Terminal() {
 		t.Error("done should be terminal")
 	}
-	if !StatusFailed.Terminal(){
+	if !StatusFailed.Terminal() {
 		t.Error("failed should be terminal")
 	}
 }

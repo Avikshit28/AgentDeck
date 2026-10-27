@@ -1,17 +1,19 @@
 package events
+
 // Status is the lifecycle state of an agent
 type Status int
-const(
+
+const (
 	StatusPending Status = iota
 	StatusRunning
 	StatusWaiting
 	StatusDone
 	StatusFailed
-
 )
-//String return a readable name such as "running"
-func (s Status) String() string{
-	switch s{
+
+// String return a readable name such as "running"
+func (s Status) String() string {
+	switch s {
 	case StatusPending:
 		return "pending"
 	case StatusRunning:
@@ -26,7 +28,8 @@ func (s Status) String() string{
 		return "unknown"
 	}
 }
-//Terminal reports whether the agent has finished for good
+
+// Terminal reports whether the agent has finished for good
 func (s Status) Terminal() bool {
 	return s == StatusDone || s == StatusFailed
 }
