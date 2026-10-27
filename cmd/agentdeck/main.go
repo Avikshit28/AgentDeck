@@ -2,46 +2,37 @@ package main
 
 import (
 	"fmt"
-	"io"
+	
 	"os/exec"
+
+	"github.com/creack/pty"
 )
 
 func main() {
-	// A command that prints slowly, so we can see streaming happen.
-	cmd := exec.Command("sh", "-c", "for i in 1 2 3 4 5; do echo line $i; sleep 1; done")
+	cmd := exec.Command("sh", "-c", "if [ -t 1 ]; then echo 'I am talking to a terminal'; else echo 'I am talking to a pipe'; fi")
 
-	// Ask for a pipe to its output BEFORE starting it.
-	stdout, err := cmd.StdoutPipe()
+	// Start the command attached to a pseudo-terminal.
+	// ptmx is our end of it: we read what the program prints,
+	// and we can write keystrokes into it.
+	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		fmt.Println("pipe failed:", err)
+		fmt.Println("pty start failed:", err)
 		return
 	}
+	defer ptmx.Close()
 
-	// Start runs the program but does NOT wait for it.
-	if err := cmd.Start(); err != nil {
-		fmt.Println("start failed:", err)
-		return
-	}
-
-	// Read whatever has arrived, over and over, until the program closes the pipe.
+	// Exactly the same reading loop as before.
 	buf := make([]byte, 1024)
 	for {
-		n, err := stdout.Read(buf)
+		n, err := ptmx.Read(buf)
 		if n > 0 {
 			fmt.Printf("[chunk of %d bytes] %s", n, string(buf[:n]))
 		}
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
-			fmt.Println("read failed:", err)
 			break
 		}
 	}
 
-	// Wait collects the exit code, now that output is finished.
-	if err := cmd.Wait(); err != nil {
-		fmt.Println("exited with error:", err)
-	}
-	fmt.Println("--- done, exit code:", cmd.ProcessState.ExitCode(), "---")
+	cmd.Wait()
+	fmt.Println("\n--- done ---")
 }
